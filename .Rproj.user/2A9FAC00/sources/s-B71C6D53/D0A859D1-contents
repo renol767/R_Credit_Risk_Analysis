@@ -1,0 +1,71 @@
+library("openxlsx")
+library(reshape2)
+library(C50)
+
+#Mempersiapkan data
+dataCreditRating <- read.xlsx(xlsxFile = "credit_scoring_dqlab.xlsx")
+str(dataCreditRating)
+
+# Merubah nama class di kolom classified as contoh class 1 jadi class satu
+dataCreditRating$risk_rating[dataCreditRating$risk_rating == "1"]  <-  "satu"
+dataCreditRating$risk_rating[dataCreditRating$risk_rating == "2"]  <-  "dua"
+dataCreditRating$risk_rating[dataCreditRating$risk_rating == "3"]  <-  "tiga"
+dataCreditRating$risk_rating[dataCreditRating$risk_rating == "4"]  <-  "empat"
+dataCreditRating$risk_rating[dataCreditRating$risk_rating == "5"]  <-  "lima"
+
+#Melakukan konversi kolom risk_rating menjadi factor
+dataCreditRating$risk_rating <- as.factor(dataCreditRating$risk_rating)
+
+#Melihat struktur setelah konversi
+str(dataCreditRating)
+
+#Memilih beberapa variable input dari dataset 
+input_columns <- c("durasi_pinjaman_bulan", "jumlah_tanggungan")
+datafeed <- dataCreditRating[ , input_columns ]
+str(datafeed)
+
+#Mempersiapkan porsi index acak untuk training dan testing set
+set.seed(100) #perintah untuk menyeragamkan pengambilan bilangan acak
+indeks_training_set <- sample(900, 800) # membuat urutan acak dengan rentang nilai 1 sampai 900 dan diambil sebanyak 800
+
+#Membuat dan menampilkan training set dan testing set
+input_training_set <- datafeed[indeks_training_set,]
+class_training_set <- dataCreditRating[indeks_training_set,]$risk_rating
+input_testing_set <- datafeed[-indeks_training_set,]
+str(input_training_set)
+str(class_training_set)
+
+#menghasilkan dan menampilkan summary model
+risk_rating_model <- C5.0(input_training_set, class_training_set)
+plot(risk_rating_model)
+summary(risk_rating_model)
+
+#menyimpan hasil prediksi testing set ke dalam kolom hasil_prediksi
+input_testing_set$risk_rating <- dataCreditRating[-indeks_training_set,]$risk_rating
+input_testing_set$hasil_prediksi <- predict(risk_rating_model, input_testing_set)
+print(input_testing_set)
+
+#membuat confusion matrix
+dcast(hasil_prediksi ~ risk_rating, data=input_testing_set)
+
+# Untuk menghitung presentase error
+# input_testing_set$risk_rating==input_testing_set$hasil_prediksi
+# menyaring dataframe tsb dengan hasil tadi
+# input_testing_set[input_testing_set$risk_rating==input_testing_set$hasil_prediksi,]
+# kita itung hasil prediksi benar gabungan dari perintah diatas dengan perintah berikut
+nrow(input_testing_set[input_testing_set$risk_rating==input_testing_set$hasil_prediksi,])
+# hasil predik yang benar 75 sesuai dengan matrix input testing model yang berbentuk diagonal
+
+#Menghitung jumlah prediksi yang salah
+nrow(input_testing_set[input_testing_set$risk_rating!=input_testing_set$hasil_prediksi,])
+
+#Membuat data frame aplikasi baru
+aplikasi_baru <- data.frame(jumlah_tanggungan = 6, durasi_pinjaman_bulan = 12)
+aplikasi_baru1 <- data.frame(jumlah_tanggungan = 6, durasi_pinjaman_bulan = 64)
+
+#melakukan prediksi
+print("Jumlah tanggungan : 6, Durasi Pinjaman : 12 Bulan")
+predict(risk_rating_model, aplikasi_baru)
+
+print("Jumlah tanggungan : 6, Durasi Pinjaman : 64 Bulan")
+predict(risk_rating_model, aplikasi_baru1)
